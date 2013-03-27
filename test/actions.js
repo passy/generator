@@ -6,6 +6,7 @@ var events = require('events');
 var assert = require('assert');
 var generators = require('../');
 var eol = require('os').EOL;
+var proxyquire = require('proxyquire');
 
 
 describe('yeoman.generators.Base', function () {
@@ -29,8 +30,46 @@ describe('yeoman.generators.Base', function () {
     this.fixtures = path.join(__dirname, 'fixtures');
   });
 
-  it('generator.prompt(defaults, prompts, cb)', function (done) {
-    this.dummy.prompt([], done);
+  describe('generator.prompt', function () {
+    it('generator.prompt(defaults, prompts, cb)', function (done) {
+      this.dummy.prompt([], done);
+    });
+
+    it('should filter prompt values', function (done) {
+      var readMock = function (prompt, callback) {
+        assert.equal(prompt.prompt, 'Key:');
+        callback(null, 'bad input');
+      };
+
+      var prompt = proxyquire('../lib/actions/prompt', {'read': readMock});
+
+      prompt.prompt([{
+        name: 'key',
+        message: 'Key:',
+        filter: function (value, cb) {
+          cb(false, value.replace(/bad/, 'good'));
+        }
+      }], function (err, props) {
+        assert.equal(props.key, 'good input');
+        done();
+      });
+    });
+
+    it('should not filter prompt values without filter', function (done) {
+      var readMock = function (prompt, callback) {
+        callback(null, 'value');
+      };
+
+      var prompt = proxyquire('../lib/actions/prompt', {'read': readMock});
+
+      prompt.prompt([{
+        name: 'key',
+        message: 'Key:'
+      }], function (err, props) {
+        assert.equal(props.key, 'value');
+        done();
+      });
+    });
   });
 
   describe('generator.sourceRoot(root)', function () {
